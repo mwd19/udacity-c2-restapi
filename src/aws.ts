@@ -1,7 +1,6 @@
 import AWS = require('aws-sdk');
 import { config } from './config/config';
 import request from 'request';
-import { base64StringToBlob } from 'blob-util';
 
 const c = config.dev;
 
