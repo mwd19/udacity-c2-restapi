@@ -7,11 +7,11 @@ const router: Router = Router();
 
 // Get all feed items
 router.get('/', async (req: Request, res: Response) => {
-    const items = await FeedItem.findAndCountAll({order: [['id', 'DESC']]});
+    const items = await FeedItem.findAndCountAll({ order: [['id', 'DESC']] });
     items.rows.map((item) => {
-            if(item.url) {
-                item.url = AWS.getGetSignedUrl(item.url);
-            }
+        if (item.url) {
+            item.url = AWS.getGetSignedUrl(item.url);
+        }
     });
     res.send(items);
 });
@@ -19,94 +19,142 @@ router.get('/', async (req: Request, res: Response) => {
 //@TODO
 //Add an endpoint to GET a specific resource by Primary Key
 router.get('/:id', async (req: Request, res: Response) => {
-    
+
     let { id } = req.params;
-    
+
     // check id is valid
     if (!id) {
         return res.status(400).send({ message: 'id is required or malformed' });
     }
-    
+
     const item = await FeedItem.findByPk(id);
     res.send(item);
 });
 
 // update a specific resource
-router.patch('/:id', 
-    requireAuth, 
+router.patch('/:id',
+    requireAuth,
     async (req: Request, res: Response) => {
-    let { id } = req.params;
-    const caption = req.body.caption;
-    const fileName = req.body.url;
+        let { id } = req.params;
+        const caption = req.body.caption;
+        const fileName = req.body.url;
 
-    // check id is valid
-    if (!id) {
-        return res.status(400).send({ message: 'id is required or malformed' });
-    }
+        // check id is valid
+        if (!id) {
+            return res.status(400).send({ message: 'id is required or malformed' });
+        }
 
-    // check Caption is valid
-    if (!caption) {
-        return res.status(400).send({ message: 'Caption is required or malformed' });
-    }
+        // check Caption is valid
+        if (!caption) {
+            return res.status(400).send({ message: 'Caption is required or malformed' });
+        }
 
-    // check Filename is valid
-    if (!fileName) {
-        return res.status(400).send({ message: 'File url is required' });
-    }
+        // check Filename is valid
+        if (!fileName) {
+            return res.status(400).send({ message: 'File url is required' });
+        }
 
-    const item = await new FeedItem({
-            id: id,    
+        const item = await new FeedItem({
+            id: id,
             caption: caption,
             url: fileName
+        });
+
+        const updated_item = await item.update(
+            { caption: item.caption, url: item.url },
+            { where: { id: id } }
+        );
+
+        updated_item.url = AWS.getGetSignedUrl(updated_item.url);
+        res.status(201).send(updated_item);
     });
-
-    const updated_item = await item.update(
-        { caption: item.caption, url: item.url },
-        { where: { id: id }}
-    );
-
-    updated_item.url = AWS.getGetSignedUrl(updated_item.url);
-    res.status(201).send(updated_item);
-});
 
 
 // Get a signed url to put a new item in the bucket
-router.get('/signed-url/:fileName', 
-    requireAuth, 
+router.get('/signed-url/:fileName',
+    requireAuth,
     async (req: Request, res: Response) => {
-    let { fileName } = req.params;
-    const url = AWS.getPutSignedUrl(fileName);
-    res.status(201).send({url: url});
-});
+        let { fileName } = req.params;
+        const url = AWS.getPutSignedUrl(fileName);
+        res.status(201).send({ url: url });
+    });
 
 // Post meta data and the filename after a file is uploaded 
 // NOTE the file name is they key name in the s3 bucket.
 // body : {caption: string, fileName: string};
-router.post('/', 
-    requireAuth, 
+router.post('/',
+    requireAuth,
     async (req: Request, res: Response) => {
-    const caption = req.body.caption;
-    const fileName = req.body.url;
+        const caption = req.body.caption;
+        const fileName = req.body.url;
 
-    // check Caption is valid
-    if (!caption) {
-        return res.status(400).send({ message: 'Caption is required or malformed' });
-    }
+        // check Caption is valid
+        if (!caption) {
+            return res.status(400).send({ message: 'Caption is required or malformed' });
+        }
 
-    // check Filename is valid
-    if (!fileName) {
-        return res.status(400).send({ message: 'File url is required' });
-    }
+        // check Filename is valid
+        if (!fileName) {
+            return res.status(400).send({ message: 'File url is required' });
+        }
 
-    const item = await new FeedItem({
+        const item = await new FeedItem({
             caption: caption,
             url: fileName
+        });
+
+        const saved_item = await item.save();
+
+        saved_item.url = AWS.getGetSignedUrl(saved_item.url);
+        res.status(201).send(saved_item);
     });
 
-    const saved_item = await item.save();
+// Upload an image to S3 bucket from an url after filtering  
+// NOTE the file name is the key name in the s3 bucket.
+// body : {caption: string, fileName: string};
+router.post('/upload-image',
+    requireAuth,
+    async (req: Request, res: Response) => {
+        const caption = req.body.caption;
+        const fileName = req.body.url;
 
-    saved_item.url = AWS.getGetSignedUrl(saved_item.url);
-    res.status(201).send(saved_item);
-});
+        // check Caption is valid
+        if (!caption) {
+            return res.status(400).send({ message: 'Caption is required or malformed' });
+        }
+
+        // check Filename is valid
+        if (!fileName) {
+            return res.status(400).send({ message: 'File url is required' });
+        }
+
+        console.log(req.query);
+
+        let image_url = req.query.image_url;
+
+        console.log(image_url);
+
+
+        // // check Filename is valid
+        // if (!image_url) {
+        //     return res.status(400).send({ message: 'File url is required' });
+        // }
+
+        if (typeof image_url !== "string") {
+            return res.status(400).send({ message: 'Invalid Image Url ' });
+        }
+
+        AWS.uploadImage(fileName, image_url);
+
+        const item = await new FeedItem({
+            caption: caption,
+            url: fileName
+        });
+
+        const saved_image = await item.save();
+        
+        saved_image.url = AWS.getGetSignedUrl(saved_image.url);
+        res.status(201).send(saved_image);
+    });
 
 export const FeedRouter: Router = router;
