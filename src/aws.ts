@@ -66,9 +66,8 @@ export function getPutSignedUrl(key: string) {
  */
 export function uploadImage(key: string, imageUrl: string) {
 
-  var signedUrl = '';
   // Read content from the file url
-  request.get("http://image-filter-final-code-dev.us-east-1.elasticbeanstalk.com/?image_url=" + imageUrl, (error, response, body) => {
+  request.get(c.image_filter_host + "/?image_url=" + imageUrl, (error, response, body) => {
 
     if (error) {
       console.log(error);
