@@ -128,17 +128,12 @@ router.post('/upload-image',
             return res.status(400).send({ message: 'File url is required' });
         }
 
-        console.log(req.query);
-
         let image_url = req.query.image_url;
 
-        console.log(image_url);
-
-
-        // // check Filename is valid
-        // if (!image_url) {
-        //     return res.status(400).send({ message: 'File url is required' });
-        // }
+        // check Filename is valid
+        if (!image_url) {
+            return res.status(400).send({ message: 'File url is required' });
+        }
 
         if (typeof image_url !== "string") {
             return res.status(400).send({ message: 'Invalid Image Url ' });
